@@ -1,4 +1,4 @@
-package goaccessmiddleware
+package access
 
 import (
 	"encoding/json"
@@ -8,6 +8,14 @@ import (
 
 	"github.com/nats-io/nats.go"
 )
+
+type Config struct {
+	ServiceName  string
+	NatsServers  string
+	NatsSubject  string
+	ExcludePaths []string
+	Test         bool
+}
 
 type AccessResponse struct {
 	Access bool `json:"access"`
@@ -25,20 +33,27 @@ type AccessRequest struct {
 	URL         string            `json:"url"`
 }
 
+var nc *nats.Conn
+
 func CheckAccessMiddleware(
 	next http.Handler,
-	nc *nats.Conn,
-	service_name string,
-	nats_servers string,
-	nats_subject string,
-	exclude_paths []string,
-	test bool,
+	config Config,
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		if nc.Status() != nats.CONNECTED {
-			nc, _ = nats.Connect(nats_servers)
+		if nc == nil {
+			nc_tmp, err := nats.Connect(config.NatsServers)
+			if err != nil {
+				http.Error(w, `404 page not found`, http.StatusNotFound)
+				return
+			}
+			nc = nc_tmp
 		}
+
+		if nc.Status() != nats.CONNECTED {
+			nc, _ = nats.Connect(config.NatsServers)
+		}
+
 		accessRequest := AccessRequest{}
 		accessRequest.Headers = map[string]string{}
 		for name, values := range r.Header {
@@ -51,22 +66,30 @@ func CheckAccessMiddleware(
 		accessRequest.Scheme = "http"
 		accessRequest.Type = "http"
 		accessRequest.URL = accessRequest.Type + "://" + r.Host + r.RequestURI
-		accessRequest.ServiceName = service_name
-		fmt.Printf("%+v\n", r)
+		accessRequest.ServiceName = config.ServiceName
+
 		json_data, err := json.Marshal(accessRequest)
 		if err != nil {
 			fmt.Println("Error: ", err)
+			http.Error(w, `404 page not found`, http.StatusNotFound)
+			return
 		}
 
-		resp, err := nc.Request(nats_subject, json_data, 1000*time.Millisecond)
+		resp, err := nc.Request(config.NatsSubject, json_data, 1000*time.Millisecond)
 		if err != nil {
 			fmt.Println("Error: ", err)
+			if err == nats.ErrNoResponders {
+				http.Error(w, `404 page not found`, http.StatusNotFound)
+				return
+			}
 		}
 		fmt.Println("Received response:", string(resp.Data))
 		var accessResponse AccessResponse
 		err = json.Unmarshal(resp.Data, &accessResponse)
 		if err != nil {
 			fmt.Println("Error: ", err)
+			http.Error(w, `404 page not found`, http.StatusNotFound)
+			return
 		}
 		if !accessResponse.Access {
 			http.Error(w, `404 page not found`, http.StatusNotFound)
