@@ -44,7 +44,7 @@ func CheckAccessMiddleware(
 		if nc == nil {
 			nc_tmp, err := nats.Connect(config.NatsServers)
 			if err != nil {
-				http.Error(w, `404 page not found`, http.StatusNotFound)
+				http.Error(w, `500 internal server error`, http.StatusInternalServerError)
 				return
 			}
 			nc = nc_tmp
@@ -71,7 +71,7 @@ func CheckAccessMiddleware(
 		json_data, err := json.Marshal(accessRequest)
 		if err != nil {
 			fmt.Println("Error: ", err)
-			http.Error(w, `404 page not found`, http.StatusNotFound)
+			http.Error(w, `500 internal server error`, http.StatusInternalServerError)
 			return
 		}
 
@@ -79,7 +79,7 @@ func CheckAccessMiddleware(
 		if err != nil {
 			fmt.Println("Error: ", err)
 			if err == nats.ErrNoResponders {
-				http.Error(w, `404 page not found`, http.StatusNotFound)
+				http.Error(w, `500 internal server error`, http.StatusInternalServerError)
 				return
 			}
 		}
@@ -88,7 +88,7 @@ func CheckAccessMiddleware(
 		err = json.Unmarshal(resp.Data, &accessResponse)
 		if err != nil {
 			fmt.Println("Error: ", err)
-			http.Error(w, `404 page not found`, http.StatusNotFound)
+			http.Error(w, `500 internal server error`, http.StatusInternalServerError)
 			return
 		}
 		if !accessResponse.Access {
