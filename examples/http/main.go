@@ -21,9 +21,10 @@ func main() {
 	wrappedMux := access.CheckAccessMiddleware(
 		mux,
 		access.Config{
-			ServiceName: "test_service",
-			NatsServers: "nats://localhost:4222",
-			NatsSubject: "access",
+			ServiceName:  "test_service",
+			NatsServers:  "nats://localhost:4222",
+			NatsSubject:  "access",
+			ExcludePaths: []string{"/healthz"},
 		},
 	)
 

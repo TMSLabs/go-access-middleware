@@ -41,6 +41,13 @@ func CheckAccessMiddleware(
 ) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
+		for _, path := range config.ExcludePaths {
+			if r.URL.Path == path {
+				next.ServeHTTP(w, r)
+				return
+			}
+		}
+
 		if nc == nil {
 			nc_tmp, err := nats.Connect(config.NatsServers)
 			if err != nil {
