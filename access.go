@@ -19,6 +19,7 @@ type Config struct {
 
 type AccessResponse struct {
 	Access bool `json:"access"`
+	Id     int  `json:"id"`
 }
 
 type AccessRequest struct {
@@ -31,6 +32,12 @@ type AccessRequest struct {
 	ServiceName string            `json:"service_name"`
 	Type        string            `json:"type"`
 	URL         string            `json:"url"`
+	Version     string            `json:"version"`
+}
+
+type Result struct {
+	Status      string `json:"status"`
+	ResponeTime string `json:"response_time"`
 }
 
 var nc *nats.Conn
@@ -74,6 +81,7 @@ func CheckAccessMiddleware(
 		accessRequest.Type = "http"
 		accessRequest.URL = accessRequest.Type + "://" + r.Host + r.RequestURI
 		accessRequest.ServiceName = config.ServiceName
+		accessRequest.Version = "v2"
 
 		json_data, err := json.Marshal(accessRequest)
 		if err != nil {
@@ -82,7 +90,7 @@ func CheckAccessMiddleware(
 			return
 		}
 
-		resp, err := nc.Request(config.NatsSubject, json_data, 1000*time.Millisecond)
+		resp, err := nc.Request(config.NatsSubject, json_data, 5*time.Second)
 		if err != nil {
 			fmt.Println("Error:", err)
 			http.Error(w, `500 Internal Server Error`, http.StatusInternalServerError)
@@ -101,6 +109,19 @@ func CheckAccessMiddleware(
 			return
 		}
 
+		start := time.Now()
+
 		next.ServeHTTP(w, r)
+
+		end := time.Now()
+
+		fmt.Printf("Request took %v\n", end.Sub(start))
+
+		result := Result{
+			Status:      "OK",
+			ResponeTime: end.Sub(start).String(),
+		}
+		result_json, _ := json.Marshal(result)
+		nc.Publish(config.NatsSubject+".result", result_json)
 	})
 }
