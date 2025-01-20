@@ -36,6 +36,7 @@ type AccessRequest struct {
 }
 
 type Result struct {
+	Id          int    `json:"id"`
 	Status      string `json:"status"`
 	ResponeTime string `json:"response_time"`
 }
@@ -118,6 +119,7 @@ func CheckAccessMiddleware(
 		fmt.Printf("Request took %v\n", end.Sub(start))
 
 		result := Result{
+			Id:          accessResponse.Id,
 			Status:      "OK",
 			ResponeTime: end.Sub(start).String(),
 		}
