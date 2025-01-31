@@ -91,7 +91,20 @@ func CheckAccessMiddleware(
 			return
 		}
 
-		resp, err := nc.Request(config.NatsSubject, json_data, 5*time.Second)
+		// Retry parameters
+		const maxRetries = 5
+		const retryDelay = 1 * time.Second
+
+		var resp *nats.Msg
+		for i := 0; i < maxRetries; i++ {
+			resp, err = nc.Request(config.NatsSubject, json_data, 2*time.Second)
+			if err == nil {
+				break // Exit the loop if the request was successful
+			}
+			fmt.Printf("Error on attempt %d: %v. Retrying in %v...\n", i+1, err, retryDelay)
+			time.Sleep(retryDelay) // Wait before retrying
+		}
+
 		if err != nil {
 			fmt.Println("Error:", err)
 			http.Error(w, `500 Internal Server Error`, http.StatusInternalServerError)
